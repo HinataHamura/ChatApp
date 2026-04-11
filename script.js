@@ -37,10 +37,6 @@ const statusPill    = document.getElementById('statusPill');
 const statusDot     = document.getElementById('statusDot');
 const statusText    = document.getElementById('statusText');
 const channelPill   = document.getElementById('channelPill');
-const channelMode   = document.getElementById('channelMode');
-const channelLabel  = document.getElementById('channelLabel');
-const channelInput  = document.getElementById('channelInput');
-const joinBtn       = document.getElementById('joinBtn');
 const leaveBtn      = document.getElementById('leaveBtn');
 const chatBox       = document.getElementById('chatBox');
 const messageEl     = document.getElementById('message');
@@ -50,12 +46,32 @@ const onlineBox     = document.getElementById('onlineBox');
 const clearLogBtn   = document.getElementById('clearLogBtn');
 const logoutBtn     = document.getElementById('logoutBtn');
 
-// These all exist natively in index.html — no injection needed
+// Native HTML elements
 const typingBar     = document.getElementById('typingBar');
 const fileInput     = document.getElementById('fileInput');
 const attachBtn     = document.getElementById('attachBtn');
 const membersBtn    = document.getElementById('membersBtn');
 const searchResults = document.getElementById('searchResults');
+
+// Conversation sidebar elements
+const convSidebar   = document.getElementById('convSidebar');
+const convList      = document.getElementById('convList');
+const convSearch    = document.getElementById('convSearch');
+const newGroupInput = document.getElementById('newGroupInput');
+const newGroupBtn   = document.getElementById('newGroupBtn');
+const chatHeader    = document.getElementById('chatHeader');
+const chatHeaderName= document.getElementById('chatHeaderName');
+const chatHeaderSub = document.getElementById('chatHeaderSub');
+const noChatPlaceholder = document.getElementById('noChatPlaceholder');
+const backBtn       = document.getElementById('backBtn');
+const chatPanel     = document.getElementById('chatPanel');
+const newGroupRow   = document.getElementById('newGroupRow');
+
+// Conversation sidebar state
+let conversations   = [];   // cached list from API
+let allUsers        = [];   // cached people list
+let activeTab       = 'groups';  // groups | dms | people
+let onlineUserIds   = new Set(); // Set of online user IDs for People tab
 
 // ─── Wire native HTML elements on DOMContentLoaded ───────────────────────────
 
@@ -74,6 +90,33 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Members panel
   membersBtn?.addEventListener('click', showMembersPanel);
+
+  // Conv sidebar: tabs
+  document.querySelectorAll('.conv-tab').forEach(tab => {
+    tab.addEventListener('click', () => setTab(tab.dataset.tab));
+  });
+
+  // Conv sidebar: search filter
+  convSearch?.addEventListener('input', () => renderConvList());
+
+  // New group join
+  newGroupBtn?.addEventListener('click', () => {
+    const name = newGroupInput?.value?.trim().toUpperCase();
+    if (!name) return;
+    openChannel(`group:${name}`, 'group', name, { type: 'group', displayName: name });
+    if (newGroupInput) newGroupInput.value = '';
+  });
+  newGroupInput?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') newGroupBtn?.click();
+  });
+
+  // Back button (mobile) — slide back to conv list
+  backBtn?.addEventListener('click', () => {
+    showConvPanel();
+  });
+
+  // Leave button in chat header
+  leaveBtn?.addEventListener('click', leaveChannel);
 
   // Mobile activity drawer toggle
   const activityToggle = document.getElementById('activityToggle');
@@ -96,6 +139,296 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ─── Conversation sidebar ────────────────────────────────────────────────────
+
+async function loadConversations() {
+  try {
+    const data = await apiFetch('/api/conversations');
+    conversations = data.conversations || [];
+    renderConvList();
+  } catch { /* ignore */ }
+}
+
+async function loadPeople() {
+  try {
+    const data = await apiFetch('/api/users');
+    allUsers = data.users || [];
+    renderConvList();
+  } catch { /* ignore */ }
+}
+
+function renderConvList() {
+  if (!convList) return;
+  const query = convSearch?.value?.trim().toLowerCase() || '';
+  convList.innerHTML = '';
+
+  // Show/hide new group row only on groups tab
+  if (newGroupRow) newGroupRow.style.display = activeTab === 'groups' ? 'flex' : 'none';
+
+  if (activeTab === 'people') {
+    // ── People tab: all registered users ──
+    const filtered = allUsers.filter(u =>
+      !query || u.username.toLowerCase().includes(query)
+    );
+    if (!filtered.length) {
+      convList.innerHTML = '<div class="conv-empty">No users found</div>';
+      return;
+    }
+    filtered.forEach(u => convList.appendChild(makePeopleRow(u)));
+    return;
+  }
+
+  // ── Groups or DMs tab ──
+  const filtered = conversations.filter(c => {
+    if (activeTab === 'groups' && c.type !== 'group' && c.type !== 'self') return false;
+    if (activeTab === 'dms'    && c.type !== 'dm') return false;
+    if (query && !c.displayName.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    if (activeTab === 'groups') {
+      convList.innerHTML = '<div class="conv-empty">No groups yet.<br>Type a name above and tap + Join!</div>';
+    } else {
+      // DMs empty — show a prompt to go to People tab
+      const empty = document.createElement('div');
+      empty.className = 'conv-empty';
+      empty.innerHTML = `
+        <div style="font-size:32px;margin-bottom:10px;">👥</div>
+        <div style="margin-bottom:10px;">No direct messages yet.</div>
+        <button class="btn primary small" id="goToPeopleBtn" style="margin:0 auto;">
+          Go to People →
+        </button>`;
+      convList.appendChild(empty);
+      document.getElementById('goToPeopleBtn')
+        ?.addEventListener('click', () => setTab('people'));
+    }
+    return;
+  }
+
+  filtered.forEach(c => convList.appendChild(makeConvRow(c)));
+}
+
+function makeConvRow(c) {
+  const item = document.createElement('div');
+  item.className = 'conv-item' + (currentChannel === c.id ? ' active' : '');
+  item.dataset.channelId = c.id;
+
+  // Avatar
+  const av = document.createElement('div');
+  const letter = c.displayName.charAt(0).toUpperCase();
+  if (c.type === 'group') {
+    av.className = 'conv-avatar group-avatar';
+    av.textContent = '#';
+  } else if (c.type === 'self') {
+    av.className = 'conv-avatar group-avatar';
+    av.textContent = '📝';
+    av.style.fontSize = '16px';
+  } else {
+    // DM: colored avatar with partner's initial
+    av.className = 'conv-avatar';
+    av.textContent = letter;
+    av.style.background = stringToColor(c.displayName);
+  }
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'conv-info';
+
+  const name = document.createElement('div');
+  name.className = 'conv-name';
+  name.textContent = c.displayName;
+
+  const preview = document.createElement('div');
+  preview.className = 'conv-preview';
+  if (c.last_text) {
+    const sender = c.last_sender ? c.last_sender + ': ' : '';
+    preview.textContent = sender + c.last_text.slice(0, 40);
+  } else if (c.last_type === 'file') {
+    preview.textContent = '📎 File';
+  } else {
+    preview.textContent = 'No messages yet';
+    preview.style.fontStyle = 'italic';
+  }
+
+  info.appendChild(name);
+  info.appendChild(preview);
+
+  // Right side: time + unread badge
+  const right = document.createElement('div');
+  right.style.cssText = 'display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;';
+
+  if (c.last_time) {
+    const t = document.createElement('div');
+    t.className = 'conv-time';
+    t.textContent = fmtTime(c.last_time);
+    right.appendChild(t);
+  }
+  if (c.unread > 0) {
+    const badge = document.createElement('div');
+    badge.className = 'conv-badge';
+    badge.textContent = c.unread > 99 ? '99+' : c.unread;
+    right.appendChild(badge);
+  }
+
+  item.appendChild(av);
+  item.appendChild(info);
+  item.appendChild(right);
+
+  item.addEventListener('click', () => openChannel(c.id, c.type, c.displayName, c));
+  return item;
+}
+
+function makePeopleRow(u) {
+  const item = document.createElement('div');
+  item.className = 'conv-item people-row';
+
+  // Colored avatar
+  const av = document.createElement('div');
+  av.className = 'conv-avatar';
+  av.textContent = u.username.charAt(0).toUpperCase();
+  av.style.background = stringToColor(u.username);
+
+  // Info
+  const info = document.createElement('div');
+  info.className = 'conv-info';
+
+  const nameEl = document.createElement('div');
+  nameEl.className = 'conv-name';
+  nameEl.textContent = u.username;
+
+  const sub = document.createElement('div');
+  sub.className = 'conv-preview';
+  const isOnline = onlineUserIds.has(u.id);
+  sub.innerHTML = isOnline
+    ? '<span style="color:#22c55e;">\u25cf Online</span>'
+    : '<span style="color:var(--muted);">\u25cb Offline</span>';
+
+  info.appendChild(nameEl);
+  info.appendChild(sub);
+
+  // Message button
+  const msgBtn = document.createElement('button');
+  msgBtn.className = 'btn small primary';
+  msgBtn.textContent = '\u{1F4AC} Message';
+  msgBtn.style.cssText = 'flex-shrink:0;font-size:12px;white-space:nowrap;';
+
+  item.appendChild(av);
+  item.appendChild(info);
+  item.appendChild(msgBtn);
+
+  const startDM = () => {
+    const ids = [currentUser.id, u.id].sort();
+    const channelId = `dm:${ids[0]}:${ids[1]}`;
+    openChannel(channelId, 'dm', u.username, {
+      type: 'dm',
+      displayName: u.username,
+      partner: { id: u.id, username: u.username }
+    });
+  };
+  item.addEventListener('click', startDM);
+  msgBtn.addEventListener('click', (e) => { e.stopPropagation(); startDM(); });
+
+  return item;
+}
+
+// Consistent color per username
+function stringToColor(str) {
+  const colors = [
+    'linear-gradient(135deg,#3b82f6,#60a5fa)',
+    'linear-gradient(135deg,#8b5cf6,#a78bfa)',
+    'linear-gradient(135deg,#ec4899,#f472b6)',
+    'linear-gradient(135deg,#10b981,#34d399)',
+    'linear-gradient(135deg,#f59e0b,#fbbf24)',
+    'linear-gradient(135deg,#ef4444,#f87171)',
+    'linear-gradient(135deg,#06b6d4,#22d3ee)',
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function showChatPanel() {
+  if (!isMobile()) return;
+  convSidebar?.classList.add('hidden-mobile');
+  chatPanel?.classList.remove('hidden-mobile');
+}
+
+function showConvPanel() {
+  if (!isMobile()) return;
+  chatPanel?.classList.add('hidden-mobile');
+  convSidebar?.classList.remove('hidden-mobile');
+}
+
+// On initial load: hide chat panel on mobile until user selects a conv
+function initMobileLayout() {
+  if (isMobile()) {
+    chatPanel?.classList.add('hidden-mobile');
+    convSidebar?.classList.remove('hidden-mobile');
+  } else {
+    chatPanel?.classList.remove('hidden-mobile');
+    convSidebar?.classList.remove('hidden-mobile');
+  }
+}
+
+function openChannel(channelId, type, displayName, conv) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    addLog('Not connected — reconnecting…');
+    connectWebSocket();
+    return;
+  }
+
+  // On mobile: slide to chat panel
+  showChatPanel();
+
+  // Update chat header
+  if (chatHeader)      chatHeader.style.display = 'flex';
+  if (noChatPlaceholder) noChatPlaceholder.style.display = 'none';
+  if (chatHeaderName)  chatHeaderName.textContent = displayName;
+  if (chatHeaderSub)   chatHeaderSub.textContent  = type === 'group' ? 'Group' : type === 'dm' ? 'Direct message' : 'Saved messages';
+
+  // Mark active in list
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  const el = convList?.querySelector(`[data-channel-id="${channelId}"]`);
+  if (el) el.classList.add('active');
+
+  // Send join
+  const mode = type === 'group' ? 'group' : type === 'dm' ? 'dm' : 'self';
+  let nameOrId = '';
+  if (type === 'group')  nameOrId = channelId.replace('group:', '');
+  else if (type === 'dm') {
+    // nameOrId should be the OTHER user's id
+    if (conv?.partner?.id) {
+      nameOrId = conv.partner.id;
+    } else {
+      const parts = channelId.split(':');
+      nameOrId = parts[1] === currentUser.id ? parts[2] : parts[1];
+    }
+  } else {
+    nameOrId = currentUser.id;
+  }
+
+  ws.send(JSON.stringify({ type: 'join_channel', mode, nameOrId }));
+  setChannelText(displayName);
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.conv-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tab);
+  });
+  if (tab === 'people' && !allUsers.length) loadPeople();
+  renderConvList();
+}
+
+function refreshConvList() {
+  loadConversations();
+  if (activeTab === 'people') loadPeople();
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -478,6 +811,9 @@ function showMainApp() {
   authOverlay.classList.add('hidden');
   mainApp.classList.add('authenticated');
   userSubtitle.textContent = `Logged in as ${currentUser.username}`;
+  initMobileLayout();
+  loadConversations();
+  loadPeople();
 }
 
 async function apiFetch(path, method = 'GET', body = null) {
@@ -552,8 +888,12 @@ function doLogout() {
   logBox.innerHTML  = '';
   onlineBox.innerHTML = '';
   messageEl.value = '';
-  channelInput.value = '';
-  typingBar.textContent = '';
+  if (typingBar) typingBar.textContent = '';
+  conversations = [];
+  allUsers = [];
+  if (convList) convList.innerHTML = '';
+  if (chatHeader) chatHeader.style.display = 'none';
+  if (noChatPlaceholder) noChatPlaceholder.style.display = 'flex';
   userSubtitle.textContent = 'Not logged in';
   mainApp.classList.remove('authenticated');
   authOverlay.classList.remove('hidden');
@@ -653,6 +993,8 @@ function connectWebSocket() {
           const total = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
           if (total > 0) addLog(`💬 ${total} unread message(s) across channels`);
         }
+        // Refresh conversation list with latest unread counts
+        loadConversations();
         break;
 
       case 'auth_error':
@@ -689,6 +1031,8 @@ function connectWebSocket() {
           unreadCounts[msg.channel] = 0;
           ws.send(JSON.stringify({ type: 'mark_read', channelId: msg.channel }));
         }
+        // Refresh conv list to update previews and clear unread badge
+        setTimeout(loadConversations, 300);
         break;
 
       case 'left_channel':
@@ -706,6 +1050,8 @@ function connectWebSocket() {
       case 'chat':
       case 'file_message':
         renderWireMessage(msg);
+        // Update conv list preview with new message
+        setTimeout(loadConversations, 200);
         break;
 
       case 'typing':
@@ -860,6 +1206,12 @@ function fallbackCopy(text, label) {
 
 // ─── Online users panel ───────────────────────────────────────────────────────
 
+function updateOnlineUserIds(users) {
+  onlineUserIds = new Set(users.map(u => u.id));
+  // If People tab is open, re-render to update Online/Offline status
+  if (activeTab === 'people') renderConvList();
+}
+
 function makeOnlineUserRow(u, isMobile) {
   const item = document.createElement('div');
   item.className = 'log-item';
@@ -890,6 +1242,7 @@ function makeOnlineUserRow(u, isMobile) {
 }
 
 function updateOnlineUsers(users) {
+  updateOnlineUserIds(users);
   // ── Desktop sidebar ──
   onlineBox.innerHTML = '';
   const title = document.createElement('div');
@@ -929,20 +1282,27 @@ registerTab.addEventListener('click', () => {
 loginButton.addEventListener('click', doLogin);
 registerButton.addEventListener('click', doRegister);
 
-channelMode.addEventListener('change', () => {
-  const mode = channelMode.value;
-  if (mode === 'group')      { channelLabel.textContent = 'Group name';    channelInput.placeholder = 'e.g. ROOM1'; }
-  else if (mode === 'dm')    { channelLabel.textContent = 'Other user ID'; channelInput.placeholder = 'Paste the other user id'; }
-  else                       { channelLabel.textContent = 'Self channel';  channelInput.placeholder = '(ignored)'; }
-});
-
-joinBtn.addEventListener('click', joinChannel);
-leaveBtn.addEventListener('click', leaveChannel);
+// joinChannel and leaveChannel are wired via conv sidebar / chat header
 sendBtn.addEventListener('click', sendMsg);
 messageEl.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendMsg(); });
 messageEl.addEventListener('input', handleInputTyping);
 clearLogBtn.addEventListener('click', () => { logBox.innerHTML = ''; });
 logoutBtn?.addEventListener('click', doLogout);
+
+// Handle orientation/resize — re-apply mobile layout
+window.addEventListener('resize', () => {
+  if (!currentUser) return;
+  if (!isMobile()) {
+    // Desktop: make sure both panels are visible
+    chatPanel?.classList.remove('hidden-mobile');
+    convSidebar?.classList.remove('hidden-mobile');
+  }
+  // On mobile: if no channel selected, show conv list
+  if (isMobile() && !currentChannel) {
+    chatPanel?.classList.add('hidden-mobile');
+    convSidebar?.classList.remove('hidden-mobile');
+  }
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
