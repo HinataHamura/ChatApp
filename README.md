@@ -272,6 +272,7 @@ Here's a quick reference for every interactive element in the app:
 <img width="1918" height="871" alt="Screenshot 2026-04-12 000621" src="https://github.com/user-attachments/assets/89275b20-012f-4d45-9e5f-3d8649b19063" />
 
 <img width="527" height="689" alt="Screenshot 2026-04-12 001206" src="https://github.com/user-attachments/assets/ea93ff93-eab5-464f-8ff5-0015a7b8cb90" />
+(Those who have created account are in the people list)
 <img width="1919" height="877" alt="Screenshot 2026-04-12 001139" src="https://github.com/user-attachments/assets/9c19b1be-41fa-47fd-a727-41c8ca3de835" />
 
 
