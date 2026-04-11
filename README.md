@@ -180,6 +180,7 @@ You can share images, PDFs, ZIPs, audio, and video files (up to **10 MB** each).
 **Other files** appear as a downloadable link (📎 filename).
 
 > Allowed file types: JPEG, PNG, GIF, WebP, PDF, TXT, ZIP, MP4, MP3
+***(After sending file,u need to refresh the page)***
 
 ---
 
