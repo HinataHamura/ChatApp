@@ -4,9 +4,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-//Added environment variable support for DB path, defaulting to 'chat.db' in the current directory
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, 'chat.db');
-const db = new Database(DB_PATH);
+const db = new Database(path.join(__dirname, 'chat.db'));
 
 // Enable WAL mode for better concurrent read performance
 db.pragma('journal_mode = WAL');
@@ -259,6 +257,55 @@ function searchMessages(query, limit = 30) {
   return rows;
 }
 
+// ─── Conversation list helpers ───────────────────────────────────────────────
+
+function getMyChannels(userId) {
+  // All channels the user is a member of, with last message preview
+  return db.prepare(`
+    SELECT
+      c.id, c.type, c.name,
+      cm.role,
+      m.text        AS last_text,
+      m.created_at  AS last_time,
+      m.type        AS last_type,
+      u2.username   AS last_sender,
+      uc.count      AS unread
+    FROM channel_members cm
+    JOIN channels c ON c.id = cm.channel_id
+    LEFT JOIN messages m ON m.id = (
+      SELECT id FROM messages
+      WHERE channel_id = c.id AND deleted = 0
+      ORDER BY created_at DESC LIMIT 1
+    )
+    LEFT JOIN users u2 ON u2.id = m.user_id
+    LEFT JOIN unread_counts uc ON uc.channel_id = c.id AND uc.user_id = ?
+    WHERE cm.user_id = ?
+    ORDER BY COALESCE(m.created_at, c.created_at) DESC
+  `).all(userId, userId);
+}
+
+function getDMPartner(channelId, myUserId) {
+  // For a dm: channel, return the OTHER user's info
+  const row = db.prepare(`
+    SELECT u.id, u.username, u.avatar_url
+    FROM channel_members cm
+    JOIN users u ON u.id = cm.user_id
+    WHERE cm.channel_id = ? AND cm.user_id != ?
+    LIMIT 1
+  `).get(channelId, myUserId);
+  return row || null;
+}
+
+function getAllUsers(excludeUserId) {
+  // All registered users except self — for the People tab
+  return db.prepare(`
+    SELECT id, username, avatar_url
+    FROM users
+    WHERE id != ?
+    ORDER BY username COLLATE NOCASE ASC
+  `).all(excludeUserId);
+}
+
 module.exports = {
   db,
   createUser, findUserByEmail, findUserById, findUserByUsername, updateAvatarUrl,
@@ -267,4 +314,5 @@ module.exports = {
   markRead, getReadBy,
   incrementUnread, resetUnread, getUnreadCounts,
   searchMessages,
+  getMyChannels, getDMPartner, getAllUsers,
 };
