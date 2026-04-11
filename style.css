@@ -854,6 +854,8 @@ select option { background: var(--card); }
 .online-name { flex: 1; font-size: 12px; color: var(--text); }
 .online-id   { font-size: 10px; color: var(--muted); font-family: monospace; }
 
+
+
 /* ═══════════════════════════════════════════════════════════════
    MEMBERS MODAL
 ═══════════════════════════════════════════════════════════════ */
@@ -975,31 +977,164 @@ select option { background: var(--card); }
    RESPONSIVE
 ═══════════════════════════════════════════════════════════════ */
 
+/* ── Mobile activity drawer ───────────────────────────────────── */
+/* Floating toggle button shown only on mobile */
+.activity-toggle {
+  display: none;
+  position: fixed;
+  bottom: 80px;
+  right: 14px;
+  z-index: 100;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--t-base);
+}
+.activity-toggle:active { transform: scale(.92); }
+
+/* Drawer slides up from bottom on mobile */
+.side-drawer {
+  display: none; /* hidden on mobile by default, shown via .open */
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 99;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-radius: 18px 18px 0 0;
+  max-height: 55vh;
+  overflow-y: auto;
+  padding: 12px 14px 24px;
+  box-shadow: 0 -8px 30px rgba(0,0,0,.5);
+  animation: drawer-up .22s ease;
+}
+@keyframes drawer-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.drawer-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 14px;
+}
+.drawer-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 10px;
+}
+
+/* ── Tablet (hide sidebar) ────────────────────────────────────── */
 @media (max-width: 920px) {
   body { padding: 0; }
   .app {
     border-radius: 0;
+    width: 100%;
     height: 100dvh;
     max-height: none;
-    min-height: (1100px, 100%);
-    width: 100%;
   }
   .layout { grid-template-columns: 1fr; }
-  .side   { display: none; }
-  .topbar { flex-wrap: wrap; gap: 8px; }
-  .status { flex-wrap: wrap; gap: 6px; }
-  .bubble { max-width: 88%; }
+  .side   { display: none; }   /* sidebar hidden — drawer used instead */
+  .bubble { max-width: 86%; }
+
+  /* Show the floating drawer toggle button */
+  .activity-toggle { display: flex; }
 }
 
+/* ── Mobile (≤ 600px) — full reflow ──────────────────────────── */
 @media (max-width: 600px) {
-  .joinbar      { flex-wrap: wrap; }
-  .small-field  { max-width: 100%; flex: 1 1 100%; }
-  .field        { min-width: 120px; }
-  .searchbar    { padding: 6px 10px; }
-  .composer     { padding: 8px 10px; gap: 6px; }
-  .auth-card    { padding: 1.5rem 1.25rem; }
-  .pill         { font-size: 11px; padding: 5px 8px; }
-  .topbar       { padding: 10px 12px; }
+
+  /* Topbar: stack brand + status vertically, hide non-essentials */
+  .topbar {
+    padding: 10px 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .status {
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 100%;
+  }
+  /* Hide pills that take too much space on mobile */
+  #channelPill,
+  #unreadPill,
+  #membersBtn { display: none !important; }
+
+  /* Keep only status dot + logout */
+  #statusPill  { font-size: 11px; padding: 5px 8px; }
+  #logoutBtn   { margin-left: auto; }
+
+  /* Search bar: compact */
+  .searchbar { padding: 6px 10px; }
+  .search-input { font-size: 13px; }
+
+  /* Join bar: stack vertically so nothing overflows */
+  .joinbar {
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .small-field {
+    flex: 1 1 100%;   /* Mode select takes full width */
+    max-width: 100%;
+  }
+  .field {
+    flex: 1 1 140px;  /* Group name input */
+    min-width: 0;
+  }
+  #joinBtn, #leaveBtn {
+    flex: 1;          /* Buttons share a row */
+    text-align: center;
+  }
+
+  /* Composer: keep attach + input + send in one row, no overflow */
+  .composer {
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .attach-btn {
+    padding: 9px 10px;
+    flex-shrink: 0;
+  }
+  .composer input#message {
+    font-size: 14px;
+    min-width: 0;     /* critical: allow shrinking */
+    flex: 1;
+  }
+  .send-btn {
+    padding: 9px 12px;
+    flex-shrink: 0;
+  }
+
+  /* Bubbles: wider on small screens */
+  .bubble { max-width: 92%; }
+
+  /* Images inside bubbles: full width on mobile */
+  .bubble img {
+    max-width: 100%;
+    max-height: 180px;
+  }
+
+  /* Auth card: tighter padding */
+  .auth-card { padding: 1.5rem 1.25rem; }
+  .auth-logo h2 { font-size: 22px; }
+
+  /* Messages padding */
+  .messages { padding: 12px 10px; }
+
+  /* Typing bar */
+  .typing-bar { padding: 3px 12px; }
 }
 
 /* ── Utility ──────────────────────────────────────────────────── */
