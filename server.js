@@ -295,6 +295,46 @@ app.get('/api/unread', requireAuth, (req, res) => {
   res.json({ unread: db.getUnreadCounts(req.user.id) });
 });
 
+// ─── REST: My conversation list (groups + DMs) ────────────────────────────────
+
+app.get('/api/conversations', requireAuth, (req, res) => {
+  const channels = db.getMyChannels(req.user.id);
+  // For DM channels, attach the partner's username instead of channel id
+  const result = channels.map(ch => {
+    let displayName = ch.name || ch.id;
+    let partnerUser = null;
+    if (ch.type === 'dm') {
+      partnerUser = db.getDMPartner(ch.id, req.user.id);
+      displayName = partnerUser ? partnerUser.username : 'Unknown';
+    } else if (ch.type === 'self') {
+      displayName = '📝 Saved messages';
+    } else {
+      // group: strip "group:" prefix
+      displayName = ch.name || ch.id.replace('group:', '');
+    }
+    return {
+      id:          ch.id,
+      type:        ch.type,
+      displayName,
+      partner:     partnerUser,
+      last_text:   ch.last_text,
+      last_time:   ch.last_time,
+      last_type:   ch.last_type,
+      last_sender: ch.last_sender,
+      unread:      ch.unread || 0,
+      role:        ch.role,
+    };
+  });
+  res.json({ conversations: result });
+});
+
+// ─── REST: All users (for People tab / start new DM) ─────────────────────────
+
+app.get('/api/users', requireAuth, (req, res) => {
+  const users = db.getAllUsers(req.user.id);
+  res.json({ users });
+});
+
 // ─── HTTP server ──────────────────────────────────────────────────────────────
 
 const httpServer = app.listen(HTTP_PORT, () => {
