@@ -113,52 +113,69 @@
           <span id="unreadCount">0</span> unread
         </div>
 
-        <!-- Members button (script.js injects this, but we provide a placeholder too) -->
-        <button id="membersBtn" class="btn small" title="View channel members">👥 Members</button>
-
         <button id="logoutBtn" class="btn small danger">Logout</button>
       </div>
     </div>
 
-    <!-- SEARCH BAR ───────────────────────────────────────── -->
-    <div class="searchbar" id="searchBar">
-      <div class="search-inner">
-        <span class="search-icon">🔍</span>
-        <input
-          id="searchInput"
-          class="search-input"
-          type="search"
-          placeholder="Search messages in this channel…"
-          autocomplete="off"
-        >
-        <button id="searchBtn" class="btn small">Search</button>
-        <button id="searchCloseBtn" class="btn small" style="display:none;">✕ Clear</button>
-      </div>
-    </div>
-
-    <!-- JOIN BAR ─────────────────────────────────────────── -->
-    <div class="joinbar">
-      <div class="field small-field">
-        <label>Mode</label>
-        <select id="channelMode">
-          <option value="group">Group</option>
-          <option value="dm">Direct</option>
-          <option value="self">Self</option>
-        </select>
-      </div>
-      <div class="field">
-        <label id="channelLabel">Group name</label>
-        <input id="channelInput" placeholder="e.g. ROOM1 or userId">
-      </div>
-      <button id="joinBtn" class="btn primary">Join</button>
-      <button id="leaveBtn" class="btn">Leave</button>
-    </div>
-
-    <!-- LAYOUT ───────────────────────────────────────────── -->
+    <!-- MAIN BODY: conv list + chat + activity ──────────── -->
     <div class="layout">
 
+      <!-- CONVERSATION LIST (left sidebar) ────────────── -->
+      <div class="conv-sidebar" id="convSidebar">
+
+        <!-- Sidebar search -->
+        <div class="conv-search-wrap">
+          <input id="convSearch" class="conv-search" placeholder="🔍  Search chats or people…" autocomplete="off">
+        </div>
+
+        <!-- Tabs: Groups | DMs | People -->
+        <div class="conv-tabs">
+          <button class="conv-tab active" data-tab="groups">Groups</button>
+          <button class="conv-tab" data-tab="dms">DMs</button>
+          <button class="conv-tab" data-tab="people">People</button>
+        </div>
+
+        <!-- New group row -->
+        <div class="new-group-row" id="newGroupRow">
+          <input id="newGroupInput" class="new-group-input" placeholder="New group name…" maxlength="30">
+          <button id="newGroupBtn" class="btn primary small">+ Join</button>
+        </div>
+
+        <!-- Conversation list -->
+        <div class="conv-list" id="convList">
+          <div class="conv-empty" id="convEmpty">Loading…</div>
+        </div>
+
+      </div>
+
       <!-- CHAT COLUMN ──────────────────────────────────── -->
-      <div class="chat">
+      <div class="chat" id="chatPanel">
+
+        <!-- Chat header (shown when a channel is open) -->
+        <div class="chat-header" id="chatHeader" style="display:none;">
+          <button class="back-btn" id="backBtn" title="Back to list">←</button>
+          <div class="chat-header-info">
+            <div class="chat-header-name" id="chatHeaderName"></div>
+            <div class="chat-header-sub" id="chatHeaderSub"></div>
+          </div>
+          <div class="chat-header-actions">
+            <!-- Search inside channel -->
+            <div class="searchbar-inline">
+              <input id="searchInput" class="search-input" type="search" placeholder="Search…" autocomplete="off">
+              <button id="searchBtn" class="btn small">Go</button>
+              <button id="searchCloseBtn" class="btn small" style="display:none;">✕</button>
+            </div>
+            <button id="membersBtn" class="btn small" title="Members">👥</button>
+            <button id="leaveBtn" class="btn small" title="Leave channel">Leave</button>
+          </div>
+        </div>
+
+        <!-- No chat selected placeholder -->
+        <div class="no-chat-placeholder" id="noChatPlaceholder">
+          <div style="font-size:48px;margin-bottom:12px;">💬</div>
+          <div style="font-size:16px;font-weight:600;margin-bottom:6px;">Select a conversation</div>
+          <div style="font-size:13px;color:var(--muted);">Choose a group or DM from the left,<br>or go to People to start a new chat.</div>
+        </div>
 
         <!-- Search results overlay (shown over messages when searching) -->
         <div id="searchResults" class="search-overlay" style="display:none;"></div>
@@ -208,7 +225,7 @@
 
       </div>
 
-      <!-- SIDE PANEL ───────────────────────────────────── -->
+      <!-- SIDE PANEL (right) ──────────────────────────── -->
       <div class="side">
 
         <!-- Activity log -->
@@ -232,8 +249,8 @@
         </div>
 
       </div>
-    </div>
-  </div>
+    </div><!-- end .layout -->
+  </div><!-- end #mainApp -->
 
   <!-- ═══════════════════════════════════════════════════════
        INLINE SCRIPTS — small helpers that don't need the
