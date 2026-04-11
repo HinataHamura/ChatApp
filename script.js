@@ -11,12 +11,12 @@ let typingTimer   = null;          // debounce for outgoing typing events
 let unreadCounts  = {};            // { channelId: count }
 let memberList    = [];            // members of current channel
 
-const API = 'http://localhost:3001';
-
+// Auto-detect ws:// vs wss:// so it works locally AND on Azure
 const WS_PROTOCOL = location.protocol === 'https:' ? 'wss:' : 'ws:';
-const WS = `${WS_PROTOCOL}//${location.host}`;
+const API = `${location.protocol}//${location.host}`;
+const WS  = `${WS_PROTOCOL}//${location.host}`;
 
-// ─── DOM refs ─────────────────────────────────────────────────────────────────
+// ─── DOM refs — all wired directly to index.html elements ────────────────────
 
 const authOverlay      = document.getElementById('authOverlay');
 const loginTab         = document.getElementById('loginTab');
@@ -50,74 +50,17 @@ const onlineBox     = document.getElementById('onlineBox');
 const clearLogBtn   = document.getElementById('clearLogBtn');
 const logoutBtn     = document.getElementById('logoutBtn');
 
-// ─── Inject extra UI elements ─────────────────────────────────────────────────
+// These all exist natively in index.html — no injection needed
+const typingBar     = document.getElementById('typingBar');
+const fileInput     = document.getElementById('fileInput');
+const attachBtn     = document.getElementById('attachBtn');
+const membersBtn    = document.getElementById('membersBtn');
+const searchResults = document.getElementById('searchResults');
 
-// Typing indicator bar (injected above composer)
-const typingBar = document.createElement('div');
-typingBar.id = 'typingBar';
-typingBar.style.cssText = 'padding:4px 16px;font-size:12px;color:var(--muted);min-height:20px;font-style:italic;';
-
-// File input (hidden)
-const fileInput = document.createElement('input');
-fileInput.type = 'file';
-fileInput.id   = 'fileInput';
-fileInput.style.display = 'none';
-fileInput.accept = 'image/*,.pdf,.txt,.zip,.mp4,.mp3';
-
-// File attach button
-const attachBtn = document.createElement('button');
-attachBtn.className   = 'btn';
-attachBtn.textContent = '📎';
-attachBtn.title       = 'Attach file';
-attachBtn.style.cssText = 'font-size:16px;padding:10px 12px;';
-
-// Search bar (injected into joinbar area)
-const searchWrap = document.createElement('div');
-searchWrap.style.cssText = 'display:flex;gap:8px;padding:8px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,.01);';
-searchWrap.innerHTML = `
-  <input id="searchInput" placeholder="🔍  Search messages…" style="flex:1;padding:8px 12px;border-radius:12px;border:1px solid var(--border);background:rgba(15,23,42,.8);color:var(--text);outline:none;font-size:13px;">
-  <button id="searchBtn" class="btn small">Search</button>
-  <button id="searchCloseBtn" class="btn small" style="display:none;">✕ Clear</button>
-`;
-
-// Search results overlay
-const searchResults = document.createElement('div');
-searchResults.id = 'searchResults';
-searchResults.style.cssText = 'display:none;position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg2);z-index:50;overflow:auto;padding:16px;flex-direction:column;gap:8px;';
-
-// Members panel toggle button
-const membersBtn = document.createElement('button');
-membersBtn.className   = 'btn small';
-membersBtn.textContent = '👥 Members';
-membersBtn.style.cssText = 'margin-left:8px;';
-
-// ─── Wire in injected elements after DOM is ready ─────────────────────────────
+// ─── Wire native HTML elements on DOMContentLoaded ───────────────────────────
 
 window.addEventListener('DOMContentLoaded', () => {
-  // Inject search bar above the layout
-  const layout = document.querySelector('.layout');
-  if (layout) layout.parentNode.insertBefore(searchWrap, layout);
-
-  // Inject typing bar & file elements into composer
-  const composer = document.querySelector('.composer');
-  if (composer) {
-    composer.parentNode.insertBefore(typingBar, composer);
-    composer.appendChild(fileInput);
-    composer.insertBefore(attachBtn, sendBtn);
-  }
-
-  // Inject search overlay into .chat
-  const chatDiv = document.querySelector('.chat');
-  if (chatDiv) {
-    chatDiv.style.position = 'relative';
-    chatDiv.appendChild(searchResults);
-  }
-
-  // Inject members button into topbar status area
-  const statusArea = document.querySelector('.status');
-  if (statusArea) statusArea.insertBefore(membersBtn, logoutBtn);
-
-  // Wire events for injected elements
+  // Search
   document.getElementById('searchBtn')
     ?.addEventListener('click', doSearch);
   document.getElementById('searchCloseBtn')
@@ -125,9 +68,33 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('searchInput')
     ?.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 
-  attachBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', handleFileSelect);
-  membersBtn.addEventListener('click', showMembersPanel);
+  // File attach
+  attachBtn?.addEventListener('click', () => fileInput?.click());
+  fileInput?.addEventListener('change', handleFileSelect);
+
+  // Members panel
+  membersBtn?.addEventListener('click', showMembersPanel);
+
+  // Mobile activity drawer toggle
+  const activityToggle = document.getElementById('activityToggle');
+  const sideDrawer     = document.getElementById('sideDrawer');
+  if (activityToggle && sideDrawer) {
+    activityToggle.addEventListener('click', () => {
+      const isOpen = sideDrawer.classList.toggle('open');
+      sideDrawer.style.display = isOpen ? 'block' : 'none';
+      activityToggle.textContent = isOpen ? '✕' : '📋';
+    });
+    // Close drawer when tapping outside
+    document.addEventListener('click', (e) => {
+      if (sideDrawer.style.display === 'block' &&
+          !sideDrawer.contains(e.target) &&
+          e.target !== activityToggle) {
+        sideDrawer.style.display = 'none';
+        sideDrawer.classList.remove('open');
+        activityToggle.textContent = '📋';
+      }
+    });
+  }
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -161,11 +128,26 @@ function setChannelText(text) {
 }
 
 function addLog(text) {
+  const msg = `[${nowTime()}] ${text}`;
+
+  // Desktop log
   const item = document.createElement('div');
   item.className = 'log-item';
-  item.textContent = `[${nowTime()}] ${text}`;
+  item.textContent = msg;
   logBox.appendChild(item);
   logBox.scrollTop = logBox.scrollHeight;
+
+  // Mobile drawer mirror
+  const mob = document.getElementById('logBoxMobile');
+  if (mob) {
+    const mitem = document.createElement('div');
+    mitem.className = 'log-item';
+    mitem.textContent = msg;
+    mob.appendChild(mitem);
+    mob.scrollTop = mob.scrollHeight;
+    // Keep only last 30 items in mobile log
+    while (mob.children.length > 30) mob.removeChild(mob.firstChild);
+  }
 }
 
 // ─── Bubble rendering ─────────────────────────────────────────────────────────
@@ -335,6 +317,7 @@ function handleInputTyping() {
 }
 
 function showTyping(users) {
+  if (!typingBar) return;
   if (!users || users.length === 0) {
     typingBar.textContent = '';
     return;
@@ -555,6 +538,9 @@ async function tryAutoLogin() {
 }
 
 function doLogout() {
+  manualDisconnect = true;
+  stopHeartbeat();
+  if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
   if (ws) { ws.onclose = null; ws.close(); ws = null; }
   authToken = currentUser = currentChannel = null;
   unreadCounts = {};
@@ -601,15 +587,56 @@ function sendMsg() {
   sendTyping(false);
 }
 
-// ─── WebSocket ────────────────────────────────────────────────────────────────
+// ─── WebSocket — with auto-reconnect + heartbeat ──────────────────────────────
+
+let reconnectTimer   = null;   // setTimeout handle for next reconnect attempt
+let reconnectDelay   = 2000;   // starts at 2s, backs off to 30s max
+let heartbeatTimer   = null;   // setInterval handle for ping
+let manualDisconnect = false;  // set true on logout so we don't reconnect
+
+function stopHeartbeat() {
+  if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+}
+
+function startHeartbeat() {
+  stopHeartbeat();
+  // Ping every 25s — keeps Azure / nginx from closing idle connections
+  heartbeatTimer = setInterval(() => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 25000);
+}
+
+function scheduleReconnect() {
+  if (manualDisconnect || reconnectTimer) return;
+  addLog('Reconnecting in ' + (reconnectDelay / 1000) + 's…');
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!manualDisconnect && authToken) connectWebSocket();
+  }, reconnectDelay);
+  // Exponential back-off: 2s -> 4s -> 8s -> ... -> 30s max
+  reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+}
 
 function connectWebSocket() {
+  if (ws && ws.readyState !== WebSocket.CLOSED) return; // already open/opening
+  manualDisconnect = false;
   setStatus('connecting');
   ws = new WebSocket(WS);
 
   ws.onopen = () => {
     setStatus('connected');
+    reconnectDelay = 2000; // reset back-off on success
     ws.send(JSON.stringify({ type: 'auth', token: authToken }));
+    startHeartbeat();
+    // Rejoin previous channel automatically after reconnect
+    if (currentChannel) {
+      const parts    = currentChannel.split(':');
+      const mode     = parts[0];
+      const nameOrId = parts.slice(1).join(':');
+      ws.send(JSON.stringify({ type: 'join_channel', mode, nameOrId }));
+    }
   };
 
   ws.onmessage = (event) => {
@@ -731,17 +758,33 @@ function connectWebSocket() {
       case 'error':
         addLog(`Server error: ${msg.text}`);
         break;
+
+      case 'pong':
+      case 'ping':
+        // heartbeat response — ignore silently
+        break;
     }
   };
 
-  ws.onerror = () => { setStatus('error'); addLog('WebSocket error'); };
-  ws.onclose = () => {
+  ws.onerror = (err) => {
+    setStatus('error');
+    addLog('Connection error');
+  };
+
+  ws.onclose = (e) => {
+    stopHeartbeat();
     setStatus('disconnected');
-    addLog('Disconnected');
-    currentChannel = null;
+    if (typingBar) typingBar.textContent = '';
+    // Don't reset currentChannel — we keep it so rejoin works on reconnect
     memberList = [];
-    setChannelText('none');
-    typingBar.textContent = '';
+    if (!manualDisconnect) {
+      addLog('Disconnected — will reconnect automatically');
+      scheduleReconnect();
+    } else {
+      addLog('Logged out');
+      currentChannel = null;
+      setChannelText('none');
+    }
   };
 }
 
@@ -775,44 +818,93 @@ function updateReadReceipt(messageId, readBy) {
   row.style.color = '#60a5fa';
 }
 
+// ─── Copy to clipboard — works on HTTP and HTTPS ─────────────────────────────
+
+function copyToClipboard(text, label) {
+  // Modern API — works on HTTPS
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        addLog(`✓ Copied ID of ${label}`);
+        showToast && showToast(`Copied: ${text.slice(0,12)}…`, 'success');
+      })
+      .catch(() => fallbackCopy(text, label));
+  } else {
+    // Fallback — works on plain HTTP (http://IP)
+    fallbackCopy(text, label);
+  }
+}
+
+function fallbackCopy(text, label) {
+  // Create a temporary textarea, select it, execCommand copy
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.cssText = 'position:fixed;top:-999px;left:-999px;opacity:0;';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    const ok = document.execCommand('copy');
+    if (ok) {
+      addLog(`✓ Copied ID of ${label}`);
+      if (window.showToast) showToast(`Copied: ${text.slice(0,12)}…`, 'success');
+    } else {
+      // Last resort — show a prompt so user can copy manually
+      prompt(`Copy this user ID manually (Ctrl+C):`, text);
+    }
+  } catch {
+    prompt(`Copy this user ID manually (Ctrl+C):`, text);
+  }
+  document.body.removeChild(ta);
+}
+
 // ─── Online users panel ───────────────────────────────────────────────────────
 
+function makeOnlineUserRow(u, isMobile) {
+  const item = document.createElement('div');
+  item.className = 'log-item';
+  item.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;';
+  item.title = 'Click to copy user ID for DM';
+
+  const dot = document.createElement('span');
+  dot.style.cssText = 'width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;flex-shrink:0;';
+
+  const nameEl = document.createElement('span');
+  nameEl.textContent = u.username;
+  nameEl.style.cssText = `flex:1;font-size:${isMobile ? '13' : '12'}px;`;
+
+  const idEl = document.createElement('span');
+  idEl.textContent = u.id.slice(0, 8) + '…';
+  idEl.style.cssText = 'font-size:10px;color:var(--muted);font-family:monospace;flex-shrink:0;';
+
+  item.appendChild(dot);
+  item.appendChild(nameEl);
+  item.appendChild(idEl);
+
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyToClipboard(u.id, u.username);
+  });
+
+  return item;
+}
+
 function updateOnlineUsers(users) {
+  // ── Desktop sidebar ──
   onlineBox.innerHTML = '';
   const title = document.createElement('div');
   title.className = 'log-item';
   title.style.fontWeight = '600';
   title.textContent = `Online (${users.length})`;
   onlineBox.appendChild(title);
+  users.forEach(u => onlineBox.appendChild(makeOnlineUserRow(u, false)));
 
-  users.forEach(u => {
-    const item = document.createElement('div');
-    item.className = 'log-item';
-    item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;cursor:pointer;';
-    item.title = 'Click to copy user ID';
-
-    const dot = document.createElement('span');
-    dot.style.cssText = 'display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;margin-right:6px;flex-shrink:0;';
-
-    const name = document.createElement('span');
-    name.textContent = u.username;
-    name.style.flex = '1';
-
-    const idEl = document.createElement('span');
-    idEl.textContent = u.id.slice(0, 6) + '…';
-    idEl.style.cssText = 'font-size:10px;color:var(--muted);font-family:monospace;';
-
-    item.appendChild(dot);
-    item.appendChild(name);
-    item.appendChild(idEl);
-
-    // Click to copy full user ID (useful for DMs)
-    item.addEventListener('click', () => {
-      navigator.clipboard.writeText(u.id).then(() => addLog(`Copied ID of ${u.username}`));
-    });
-
-    onlineBox.appendChild(item);
-  });
+  // ── Mobile drawer mirror ──
+  const mobOnline = document.getElementById('onlineBoxMobile');
+  if (mobOnline) {
+    mobOnline.innerHTML = '';
+    users.forEach(u => mobOnline.appendChild(makeOnlineUserRow(u, true)));
+  }
 }
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
