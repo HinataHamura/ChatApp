@@ -1,3 +1,4 @@
+<img width="215" height="70" alt="Screenshot 2026-04-12 003228" src="https://github.com/user-attachments/assets/a98e26fb-852f-4719-b904-bc6991ce4cc2" />
 # 💬 Chat App
 
 A full-featured, real-time chat application built with **Node.js**, **WebSockets**, **SQLite**, and vanilla JavaScript. Supports group channels, direct messages, file sharing, message search, read receipts, typing indicators, and more.
@@ -280,6 +281,7 @@ Here's a quick reference for every interactive element in the app:
 <img width="1202" height="311" alt="Screenshot 2026-04-11 172805" src="https://github.com/user-attachments/assets/1edba1d9-9b46-432a-bc0f-c0159dd99d21" />
 
 <img width="1106" height="921" alt="Screenshot 2026-04-11 172843" src="https://github.com/user-attachments/assets/63bdc6d7-bc3d-418d-8246-09a4e54bcbe7" />
+<img width="215" height="70" alt="Screenshot 2026-04-12 003228" src="https://github.com/user-attachments/assets/21bf5cc4-bd13-4650-a993-3b25f65a59f5" />
 
 
 
