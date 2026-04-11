@@ -1,437 +1,348 @@
-# 💬 Real-Time Chat Application
+# 💬 Chat App
 
-A full-featured, production-ready real-time chat application built with **Node.js**, **WebSockets**, **JWT authentication**, and **SQLite**. Deployed on **Microsoft Azure** with persistent storage.
+A full-featured, real-time chat application built with **Node.js**, **WebSockets**, **SQLite**, and vanilla JavaScript. Supports group channels, direct messages, file sharing, message search, read receipts, typing indicators, and more.
 
----
-
-## 🌐 Live Demo
-
-> **URL:** `https://<your-app-name>.azurewebsites.net`
-> **Hosted on:** Azure App Service (Ubuntu 24.04 LTS)
-
----
-
-## 📸 Screenshots
-
-> *(Add screenshots of your app here after deployment)*
->
-> Suggested screenshots:
-> - Login / Register screen
-> - Group chat with messages
-> - Typing indicator in action
-> - File upload preview
-> - Members panel
-> - Search results overlay
+🌐 **Live Demo:** [http://104.214.173.27/](http://104.214.173.27/)
 
 ---
 
 ## ✨ Features
 
-### 🔐 Authentication
-- User **registration** with username, email, and password
-- Secure **login** with email and password
-- Passwords hashed using **bcrypt** (industry-standard, never stored in plain text)
-- **JWT tokens** (JSON Web Tokens) issued on login, valid for 7 days
-- **Auto-login** on page reload using stored token
-- Inline form error messages (no annoying browser alerts)
-- Password show/hide toggle on all password fields
-
-### 💬 Real-Time Messaging
-- Instant message delivery via **WebSocket** (no page refresh needed)
-- Three channel modes:
-  - **Group chat** — any number of users join by room name (e.g. `ROOM1`)
-  - **Direct message (DM)** — private 1-to-1 conversation between two users
-  - **Self channel** — personal notepad / saved messages
-- Chat bubbles styled differently for **sent vs received** messages
-- System event messages (user joined / left) displayed inline
-- **Enter key** to send messages
-
-### 🗄️ Message Persistence
-- All messages saved to **SQLite database** via `better-sqlite3`
-- **Message history** loads automatically when joining a channel (last 50 messages)
-- History displayed with a clear separator so users know where live messages begin
-- Messages survive server restarts and redeployments
-
-### ⌨️ Typing Indicators
-- Real-time **"X is typing…"** indicator shown to other users in the channel
-- Animated pulsing dots (●●●) while someone is typing
-- Auto-clears after 2.5 seconds of inactivity
-- Multiple users typing shown simultaneously
-
-### ✅ Read Receipts
-- **"✓ Sent"** shown below your own messages immediately
-- Updates to **"✓✓ Read by username"** (in blue) when recipient reads the message
-- Tracks which users have read each message
-
-### 🔢 Unread Message Counts
-- Unread badge in the top bar shows total unread messages across all channels
-- Badge pulses to draw attention
-- Count automatically resets to zero when you open that channel
-- Live push updates — badge updates instantly without refreshing
-
-### 📎 File Sharing
-- **Attach button** (paperclip) in the composer
-- Supported file types: images (JPEG, PNG, GIF, WebP), PDF, TXT, ZIP, MP4, MP3
-- **Image files** preview inline inside the chat bubble
-- **Non-image files** shown as a downloadable link chip
-- File size limit: configurable via environment variable (default 10 MB)
-- Files uploaded via REST API, then broadcast to the channel via WebSocket
-
-### 🔍 Message Search
-- **Search bar** at the top of the app
-- Full-text search powered by **SQLite FTS5** (fast, no external service needed)
-- Results shown in an overlay with highlighted matching text
-- Search from any channel — results include sender name and timestamp
-- Clear button to dismiss results and return to chat
-
-### ✏️ Edit & Delete Messages
-- **Right-click** your own message to open a context menu
-- **Edit** — prompts for new text, updates instantly for all users in the channel
-- **Delete** — removes the message from all users' views in real time
-- Edited messages show an `(edited)` tag
-- Server enforces ownership — you can only edit/delete your own messages
-
-### 👥 Members Panel
-- **Members button** in the top bar opens a modal with all channel members
-- Shows each member's username, role badge, and shortened user ID
-- Role badges: **Owner** (gold), **Admin** (blue), **Member** (grey)
-- **Admin controls** — kick button visible to owners and admins
-- Clicking a user in the **Online panel** copies their full ID to clipboard (useful for DMs)
-
-### 🛡️ Admin Tools
-- Channel creator is automatically assigned **Owner** role
-- Owners can promote members to **Admin**
-- Admins and owners can **kick members** from group channels
-- Role permissions enforced on both client and server side
-- REST API endpoints for role management (`PATCH /api/channels/:id/members/:userId/role`)
-
-### 🟢 Online Presence
-- **Online users panel** in the sidebar shows who is currently connected
-- Updates in real time when users connect or disconnect
-- Green dot indicator next to each online user
-- Click any online user to copy their ID (for starting a DM)
-
-### 📱 Responsive Design
-- Fully responsive layout — works on desktop, tablet, and mobile
-- Sidebar hides on screens under 920px
-- Composer and join bar adapt to small screens
-- Full-screen mode on mobile (`100dvh`)
-
-### 🎨 UI / UX
-- Dark theme with blue/teal gradient accents
-- Toast notifications (success, error, info, warning) — top-right corner
-- Character counter appears when approaching the 2000-character message limit
-- Smooth animations on modals, context menus, and toasts
-- Thin styled scrollbars throughout
-- SVG icons for attach and send buttons (no emoji dependencies)
+- 🔐 JWT-based authentication (register & login)
+- ⚡ Real-time messaging via WebSockets
+- 💬 Group channels, Direct Messages (DM), and Self-notes
+- 📎 File attachments (images, PDFs, ZIPs, audio, video)
+- 🔍 Full-text message search (FTS5)
+- ✅ Read receipts & unread badge counts
+- ✍️ Live typing indicators
+- 🟢 Online users list
+- 🛡️ Admin controls (kick members, role management)
+- 📱 Mobile-responsive with slide-up activity drawer
+- 🔄 Auto-reconnect on disconnect
 
 ---
 
-## 🏗️ Architecture
+## 📋 Table of Contents
 
-```
-┌─────────────────────────────────────────────────┐
-│                   Browser (Client)               │
-│  index.html + style.css + script.js             │
-│                                                  │
-│  ┌─────────────┐    ┌──────────────────────┐    │
-│  │  REST fetch │    │  WebSocket (ws/wss)  │    │
-│  └──────┬──────┘    └──────────┬───────────┘    │
-└─────────│──────────────────────│────────────────┘
-          │ HTTP                 │ WS
-          ▼                      ▼
-┌─────────────────────────────────────────────────┐
-│              server.js (Node.js)                 │
-│                                                  │
-│  ┌───────────────┐   ┌────────────────────────┐ │
-│  │ Express (HTTP)│   │  ws WebSocket Server   │ │
-│  │               │   │                        │ │
-│  │ POST /register│   │  auth → join_channel   │ │
-│  │ POST /login   │   │  chat → file_message   │ │
-│  │ GET  /me      │   │  typing → read         │ │
-│  │ POST /upload  │   │  search → admin_kick   │ │
-│  │ GET  /search  │   │  mark_read → leave     │ │
-│  │ GET  /messages│   │                        │ │
-│  │ DELETE /msg   │   └────────────────────────┘ │
-│  └───────────────┘                              │
-│          │                                       │
-│          ▼                                       │
-│  ┌────────────────┐                             │
-│  │    db.js       │                             │
-│  │  better-sqlite3│                             │
-│  │                │                             │
-│  │  users         │                             │
-│  │  channels      │                             │
-│  │  messages      │                             │
-│  │  message_reads │                             │
-│  │  unread_counts │                             │
-│  │  messages_fts  │ ← Full-text search index   │
-│  └────────────────┘                             │
-└─────────────────────────────────────────────────┘
-          │
-          ▼
-┌─────────────────────────────────────────────────┐
-│         Azure Infrastructure                     │
-│                                                  │
-│  App Service (Ubuntu 24.04, Node 20 LTS)        │
-│  Azure File Share mounted at /data              │
-│    ├── chat.db       (SQLite database)           │
-│    └── uploads/      (user-uploaded files)       │
-└─────────────────────────────────────────────────┘
-```
+1. [Getting Started (Local Setup)](#getting-started)
+2. [User Guide — Step by Step](#user-guide)
+   - [Registering an Account](#1-registering-an-account)
+   - [Logging In](#2-logging-in)
+   - [Joining a Channel](#3-joining-a-channel)
+   - [Sending Messages](#4-sending-messages)
+   - [Direct Messages](#5-direct-messages-dm)
+   - [File Attachments](#6-file-attachments)
+   - [Searching Messages](#7-searching-messages)
+   - [Members Panel](#8-members-panel)
+   - [Unread Badges](#9-unread-badges)
+   - [Leaving a Channel & Logging Out](#10-leaving-a-channel--logging-out)
+   - [Mobile Usage](#11-mobile-usage)
+3. [UI Reference — Every Button Explained](#ui-reference)
+4. [Project Structure](#project-structure)
+5. [Environment Variables](#environment-variables)
+6. [API Reference](#api-reference)
+7. [Tech Stack](#tech-stack)
 
 ---
 
-## 🗂️ Project Structure
-
-```
-chat-app/
-│
-├── server.js          # Main backend — Express REST API + WebSocket server
-├── db.js              # SQLite database layer — all queries and schema
-│
-├── index.html         # Single-page frontend shell
-├── script.js          # Frontend logic — auth, WebSocket, UI, file upload
-├── style.css          # Full dark-theme stylesheet — responsive
-│
-├── package.json       # Node.js dependencies
-├── .env               # Environment variables (NOT committed to git)
-├── .gitignore         # Excludes .env, *.db, uploads/, node_modules/
-├── web.config         # Azure IIS/iisnode config (Windows App Service)
-│
-└── AZURE_DEPLOY.md    # Full step-by-step Azure deployment guide
-```
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| Runtime | Node.js 20 LTS | Server-side JavaScript |
-| HTTP server | Express 4 | REST API + static file serving |
-| Real-time | ws (WebSocket) | Bidirectional live messaging |
-| Authentication | jsonwebtoken (JWT) | Stateless token auth |
-| Password security | bcryptjs | Password hashing (cost factor 10) |
-| Database | better-sqlite3 | Fast synchronous SQLite driver |
-| Full-text search | SQLite FTS5 | Built-in full-text search index |
-| File uploads | multer | Multipart form handling |
-| IDs | uuid v4 | Collision-free unique identifiers |
-| Config | dotenv | Environment variable management |
-| Frontend | Vanilla JS | No framework — lightweight and fast |
-| Styling | Custom CSS | Dark theme, CSS variables, responsive |
-| Hosting | Azure App Service | Linux B1, Node 20 LTS |
-| Storage | Azure File Share | Persistent DB + uploads across restarts |
-
----
-
-## 📡 API Reference
-
-### REST Endpoints
-
-| Method | Endpoint | Auth | Description |
-|---|---|---|---|
-| `POST` | `/api/register` | ❌ | Register new user |
-| `POST` | `/api/login` | ❌ | Login, returns JWT token |
-| `GET` | `/api/me` | ✅ | Get current user info |
-| `POST` | `/api/upload` | ✅ | Upload a file (multipart) |
-| `GET` | `/api/messages/:channelId` | ✅ | Get message history (paginated) |
-| `GET` | `/api/search?q=` | ✅ | Full-text search messages |
-| `GET` | `/api/unread` | ✅ | Get unread counts for all channels |
-| `GET` | `/api/channels/:id/members` | ✅ | List channel members |
-| `DELETE` | `/api/channels/:id/members/:userId` | ✅ Admin | Kick a member |
-| `PATCH` | `/api/channels/:id/members/:userId/role` | ✅ Admin | Change member role |
-| `DELETE` | `/api/messages/:msgId` | ✅ Owner/Admin | Delete a message |
-| `PATCH` | `/api/messages/:msgId` | ✅ Owner | Edit a message |
-
-### WebSocket Message Types
-
-#### Client → Server
-
-| Type | Payload | Description |
-|---|---|---|
-| `auth` | `{ token }` | Authenticate the WS connection |
-| `join_channel` | `{ mode, nameOrId }` | Join a group, DM, or self channel |
-| `leave_channel` | — | Leave current channel |
-| `chat` | `{ text }` | Send a text message |
-| `file_message` | `{ file_url, file_name, file_size, file_type }` | Broadcast an uploaded file |
-| `typing` | `{ isTyping }` | Start/stop typing indicator |
-| `read` | `{ messageId }` | Mark a message as read |
-| `mark_read` | `{ channelId }` | Reset unread count for a channel |
-| `search` | `{ query }` | Full-text search (WS alternative to REST) |
-| `admin_kick` | `{ userId }` | Kick a user (admin/owner only) |
-
-#### Server → Client
-
-| Type | Description |
-|---|---|
-| `auth_ok` | Auth succeeded — includes online users + unread counts |
-| `auth_error` | Auth failed — connection closed |
-| `joined_channel` | Successfully joined — includes history, members, unread |
-| `left_channel` | Successfully left the channel |
-| `chat` | Incoming chat message |
-| `file_message` | Incoming file share |
-| `system` | System event (user joined/left) |
-| `typing` | Who is currently typing in the channel |
-| `read_receipt` | Updated list of who has read a message |
-| `online_users` | Updated list of connected users |
-| `unread_update` | New unread count for a channel |
-| `message_deleted` | A message was deleted — remove from UI |
-| `message_edited` | A message was edited — update in UI |
-| `kicked` | A user was removed from the channel |
-| `error` | Server-side error description |
-
----
-
-## 🗃️ Database Schema
-
-```sql
-users           — id, username, email, password_hash, avatar_url, role, created_at
-channels        — id, type (group/dm/self), name, created_by, created_at
-channel_members — channel_id, user_id, role (owner/admin/member), joined_at
-messages        — id, channel_id, user_id, type, text, file_url, file_name,
-                  file_size, file_type, edited_at, deleted, created_at
-message_reads   — message_id, user_id, read_at
-unread_counts   — channel_id, user_id, count, last_read_at
-messages_fts    — Virtual FTS5 table (auto-synced via triggers)
-```
-
----
-
-## ⚙️ Environment Variables
-
-Create a `.env` file in the project root:
-
-```env
-JWT_SECRET=your-64-character-random-secret-here
-PORT=3001
-WS_PORT=3000
-DB_PATH=./chat.db
-UPLOAD_DIR=./uploads
-MAX_FILE_MB=10
-```
-
-| Variable | Default | Description |
-|---|---|---|
-| `JWT_SECRET` | *(required)* | Secret key for signing JWT tokens |
-| `PORT` | `3001` | HTTP server port |
-| `WS_PORT` | `3000` | WebSocket server port (set equal to PORT on Azure) |
-| `DB_PATH` | `./chat.db` | Path to SQLite database file |
-| `UPLOAD_DIR` | `./uploads` | Directory for uploaded files |
-| `MAX_FILE_MB` | `10` | Maximum file upload size in MB |
-
-Generate a secure JWT secret:
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
-```
-
----
-
-## 🚀 Local Setup
+## Getting Started
 
 ### Prerequisites
-- Node.js 18 or higher
-- npm
 
-### Steps
+- **Node.js** v18 or higher
+- **npm**
+
+### Installation
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/your-username/chat-app.git
-cd chat-app
+git clone https://github.com/HinataHamura/ChatApp.git
+cd YOUR_REPO
 
 # 2. Install dependencies
 npm install
 
-# 3. Create .env file
-cp .env.example .env
-# Edit .env and fill in your JWT_SECRET
+# 3. Configure environment (optional)
+cp _env .env
+# Edit .env with your preferred settings (see Environment Variables section)
 
 # 4. Start the server
 npm start
 
-# For development (auto-restart on file changes)
+# OR for development with auto-restart
 npm run dev
 ```
 
-Open your browser at **http://localhost:3001**
+The app will be available at **http://104.214.173.27/**
+
+> **Note:** Both the HTTP/REST API and WebSocket server run on the **same port `3001`**. The WebSocket is attached directly to the Express HTTP server, so no separate port is needed.
 
 ---
 
-## ☁️ Azure Deployment
+## User Guide
 
-Full step-by-step deployment instructions are in **[AZURE_DEPLOY.md](./AZURE_DEPLOY.md)**.
+### 1. Registering an Account
 
-Summary of what is covered:
-- Creating Azure Resource Group, App Service, and Storage Account
-- Mounting Azure File Share for persistent DB + uploads
-- Setting environment variables securely in Azure App Settings
-- Enabling WebSocket support on App Service
-- Deploying via Git push, ZIP deploy, or VS Code extension
-- Adding a custom domain with free managed TLS certificate
-- Troubleshooting common Azure deployment issues
+When you first open the app, you'll see the **Auth screen** with two tabs: **Login** and **Register**.
 
-**Deployed infrastructure:**
-- Azure App Service — Linux B1 (~$13/month)
-- Azure File Share — 5 GB LRS (~$0.30/month)
+1. Click the **Register** tab
+2. Fill in:
+   - **Username** — your display name (must be unique)
+   - **Email** — your email address (must be unique)
+   - **Password** — minimum 6 characters
+3. Click **Create Account**
+4. On success, you're automatically logged in and taken to the main chat interface
 
----
-
-## 🔒 Security
-
-| Concern | Implementation |
-|---|---|
-| Password storage | bcrypt with cost factor 10 — never stored plain |
-| Authentication | JWT signed with HS256, 7-day expiry |
-| WebSocket auth | Every connection must send a valid JWT before any action |
-| Message ownership | Server enforces — users can only edit/delete their own messages |
-| Admin actions | Role checked server-side on every admin request |
-| File types | Allowlist of MIME types enforced by multer |
-| File size | Configurable hard limit via `MAX_FILE_MB` |
-| SQL injection | All queries use prepared statements via better-sqlite3 |
-| Secrets | `.env` excluded from git via `.gitignore` |
-| Azure secrets | Stored as App Settings — never in code |
+> 💡 Use the 👁 eye icon next to the password field to show or hide your password.
 
 ---
 
-## 🔧 Scripts
+### 2. Logging In
 
-```bash
-npm start       # Start server (production)
-npm run dev     # Start with nodemon (auto-restart on changes)
+1. On the Auth screen, stay on (or click) the **Login** tab
+2. Enter your **Email** and **Password**
+3. Click **Login**
+
+Your session is saved locally — you'll stay logged in even after refreshing the page (token valid for 7 days).
+
+---
+
+### 3. Joining a Channel
+
+Once logged in, you'll see the **Join Bar** near the top of the page. This is how you enter a chat room.
+
+#### Group Channel (public room)
+
+1. Set the **Mode** dropdown to `Group`
+2. Type a room name in the text field (e.g., `GENERAL`, `ROOM1`) — names are auto-uppercased
+3. Click **Join**
+
+Everyone who types the same room name joins the same room. The first person to join becomes the **owner**.
+
+#### Direct Message (DM)
+
+1. Set the **Mode** dropdown to `Direct`
+2. Paste the **User ID** of the person you want to DM (you can copy it from the Online Users list — see below)
+3. Click **Join**
+
+This opens a private 1-on-1 conversation that only the two of you can see.
+
+#### Self Channel (personal notes)
+
+1. Set the **Mode** dropdown to `Self`
+2. Click **Join** (the text field is ignored)
+
+This opens a private channel just for yourself — great for saving notes or testing.
+
+---
+
+### 4. Sending Messages
+
+Once you've joined a channel:
+
+1. Click the **message input box** at the bottom of the screen
+2. Type your message (up to 2,000 characters)
+3. Press **Enter** or click the **Send** (➤) button
+
+A character counter appears in the bottom-right corner when you're within 20% of the limit (turning red at the limit).
+
+**Your messages** appear on the right side of the chat in a distinct color. **Other users' messages** appear on the left.
+
+**Read receipts** appear under your messages:
+- `✓ Sent` — message delivered
+- `✓✓ Read by [name]` — the other user has seen it (shown in blue)
+
+**Typing indicator** — when someone else is typing in your channel, you'll see a `[username] is typing…` notice above the message input.
+
+---
+
+### 5. Direct Messages (DM)
+
+To send a DM to someone:
+
+1. Look at the **Online** panel on the right sidebar (or tap 📋 on mobile)
+2. Click on any username — their **User ID** is automatically copied to your clipboard
+3. Switch the **Mode** dropdown to `Direct`
+4. Paste the User ID into the input field
+5. Click **Join** to open the DM thread
+
+---
+
+### 6. File Attachments
+
+You can share images, PDFs, ZIPs, audio, and video files (up to **10 MB** each).
+
+1. Click the **📎 paperclip button** to the left of the message input
+2. Select a file from your device
+3. The file uploads automatically and appears in the chat
+
+**Images** are displayed inline — click on an image to open it full-size in a new tab.
+**Other files** appear as a downloadable link (📎 filename).
+
+> Allowed file types: JPEG, PNG, GIF, WebP, PDF, TXT, ZIP, MP4, MP3
+
+---
+
+### 7. Searching Messages
+
+1. The **Search bar** sits just below the top bar
+2. Type your search query in the input
+3. Press **Enter** or click **Search**
+4. Results appear as an overlay above the chat — each result shows the message content with your search term **highlighted**
+5. Click **✕ Clear** (or the close button) to dismiss results and return to normal chat view
+
+> Search is powered by SQLite FTS5 and searches across all messages you have access to.
+
+---
+
+### 8. Members Panel
+
+To see who is in the current channel:
+
+1. Click the **👥 Members** button in the top-right toolbar
+2. A panel lists all members with their roles (`owner`, `admin`, `member`)
+
+**Admin actions** (only available to owners/admins):
+- A **Kick** button appears next to each non-owner member
+- Clicking **Kick** removes that user from the channel immediately
+
+---
+
+### 9. Unread Badges
+
+When new messages arrive in a channel you're **not currently viewing**, an **unread pill** (e.g., `3 unread`) appears in the top bar. This count resets automatically when you join (or rejoin) that channel.
+
+---
+
+### 10. Leaving a Channel & Logging Out
+
+**To leave a channel:**
+- Click the **Leave** button in the Join Bar
+- A system message notifies other members that you've left
+
+**To log out:**
+- Click the **Logout** button (red, top-right corner)
+- Your session token is cleared and you're returned to the Auth screen
+
+---
+
+### 11. Mobile Usage
+
+On small screens, the sidebar (Activity log + Online users) is hidden by default.
+
+- Tap the **📋 button** (bottom-right floating button) to slide up the activity drawer
+- Tap anywhere outside the drawer (or tap **✕**) to close it
+- All other features work the same on mobile
+
+---
+
+## UI Reference
+
+Here's a quick reference for every interactive element in the app:
+
+| Element | Location | What it does |
+|---|---|---|
+| **Login / Register tabs** | Auth screen | Switches between login and registration forms |
+| **👁 Eye icon** | Password fields | Toggles password visibility |
+| **Mode dropdown** | Join Bar | Selects channel type: Group, Direct, or Self |
+| **Channel input** | Join Bar | Enter room name (Group) or user ID (Direct) |
+| **Join button** | Join Bar | Joins / creates the specified channel |
+| **Leave button** | Join Bar | Leaves the current channel |
+| **Status pill** | Top bar | Shows WebSocket connection state (green = connected) |
+| **Channel pill** | Top bar | Shows the name of your current channel |
+| **Unread pill** | Top bar | Shows total unread message count across channels |
+| **👥 Members button** | Top bar | Opens the members list for the current channel |
+| **Logout button** | Top bar | Signs you out and returns to the Auth screen |
+| **🔍 Search bar** | Below top bar | Full-text search across messages |
+| **Search button** | Search bar | Runs the search |
+| **✕ Clear button** | Search bar | Clears search results |
+| **📎 Attach button** | Composer | Opens the file picker |
+| **Message input** | Composer (bottom) | Type messages here; Enter to send |
+| **Send button (➤)** | Composer | Sends the typed message |
+| **Character counter** | Below composer | Appears when nearing the 2,000-character limit |
+| **Clear button** | Activity sidebar | Clears the local activity log |
+| **📋 Activity toggle** | Mobile — floating | Opens the activity & online users drawer |
+| **Username in Online list** | Right sidebar | Click to copy that user's ID for starting a DM |
+
+---
+
+## Project Structure
+
+```
+├── server.js        # Express + WebSocket server, REST API, auth
+├── db.js            # SQLite database layer (better-sqlite3)
+├── index.html       # Single-page frontend markup
+├── script.js        # Frontend WebSocket client & UI logic
+├── style.css        # All styles
+├── package.json     # Dependencies & scripts
+├── _env             # Example environment variable file (rename to .env)
+└── uploads/         # Created automatically; stores uploaded files
 ```
 
 ---
 
-## 📦 Dependencies
+## Environment Variables
 
-| Package | Version | Purpose |
+Copy `_env` to `.env` and configure:
+
+| Variable | Default | Description |
 |---|---|---|
-| `express` | ^4.18.3 | HTTP REST API server |
-| `ws` | ^8.16.0 | WebSocket server |
-| `jsonwebtoken` | ^9.0.2 | JWT generation and verification |
-| `bcryptjs` | ^2.4.3 | Password hashing |
-| `better-sqlite3` | ^9.4.3 | SQLite database driver |
-| `multer` | ^1.4.5-lts.1 | File upload handling |
-| `uuid` | ^9.0.1 | UUID v4 generation |
-| `dotenv` | ^16.4.5 | Environment variable loading |
-| `cors` | ^2.8.5 | Cross-origin request handling |
-| `nodemon` *(dev)* | ^3.1.0 | Auto-restart during development |
+| `PORT` | `3001` | HTTP server port |
+| `WS_PORT` | `3001` | Defined in `.env` but not used — WebSocket shares `PORT` (3001) |
+| `JWT_SECRET` | `change-this-secret-in-production` | **Change this in production!** |
+| `DB_PATH` | `./chat.db` | Path to the SQLite database file |
+| `UPLOAD_DIR` | `./uploads` | Directory for file uploads |
+| `MAX_FILE_MB` | `10` | Maximum upload file size in MB |
+
+> ⚠️ **Always set a strong `JWT_SECRET` in production** — the default value is insecure.
 
 ---
 
-## 👤 Author
+## API Reference
 
-**Esha**
-- GitHub: [@your-username](https://github.com/your-username)
-- Deployed on Azure VM: `104.214.173.27`
+All REST endpoints require a `Authorization: Bearer <token>` header (except `/api/register` and `/api/login`).
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/register` | Create a new account |
+| `POST` | `/api/login` | Log in and receive a JWT token |
+| `GET` | `/api/me` | Get the current user's profile |
+| `POST` | `/api/upload` | Upload a file (returns URL) |
+| `GET` | `/api/messages/:channelId` | Fetch message history (paginated) |
+| `GET` | `/api/search?q=query` | Full-text search across messages |
+| `GET` | `/api/channels/:channelId/members` | List channel members |
+
+### WebSocket Events (client → server)
+
+| Event type | Payload | Description |
+|---|---|---|
+| `auth` | `{ token }` | Authenticate the WS connection |
+| `join_channel` | `{ mode, nameOrId }` | Join or create a channel |
+| `chat` | `{ text }` | Send a text message |
+| `file_message` | `{ file_url, file_name, file_size, file_type }` | Send a file message |
+| `typing` | `{ isTyping }` | Broadcast typing status |
+| `read` | `{ messageId }` | Mark a message as read |
+| `leave_channel` | — | Leave the current channel |
+| `mark_read` | `{ channelId }` | Reset unread count for a channel |
+| `admin_kick` | `{ userId }` | Kick a user (admin/owner only) |
+| `ping` | — | Keepalive ping |
 
 ---
 
-## 📄 License
+## Tech Stack
 
-This project is for educational and portfolio purposes.
+| Layer | Technology |
+|---|---|
+| Runtime | Node.js ≥ 18 |
+| HTTP Server | Express 4 |
+| Real-time | WebSockets (`ws` library) |
+| Database | SQLite via `better-sqlite3` |
+| Auth | JWT (`jsonwebtoken`) + `bcryptjs` |
+| File Uploads | `multer` |
+| Frontend | Vanilla HTML / CSS / JavaScript |
 
 ---
 
-*Built with Node.js · WebSockets · SQLite · Deployed on Microsoft Azure*
+## License
+
+MIT — feel free to use, modify, and distribute.
