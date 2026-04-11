@@ -114,7 +114,7 @@
         </div>
 
         <!-- Members button (script.js injects this, but we provide a placeholder too) -->
-        <!-- <button id="membersBtn" class="btn small" title="View channel members">👥 Members</button> -->
+        <button id="membersBtn" class="btn small" title="View channel members">👥 Members</button>
 
         <button id="logoutBtn" class="btn small danger">Logout</button>
       </div>
@@ -313,6 +313,29 @@
       // script.js handles the actual doSearch() / closeSearch() calls
     });
   </script>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MOBILE ACTIVITY DRAWER (only visible on small screens)
+  ══════════════════════════════════════════════════════════ -->
+
+  <!-- Floating toggle button -->
+  <button class="activity-toggle" id="activityToggle" title="Activity &amp; Online users">📋</button>
+
+  <!-- Slide-up drawer -->
+  <div class="side-drawer" id="sideDrawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Activity &amp; Online</div>
+
+    <div style="margin-bottom:10px;">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Activity</div>
+      <div id="logBoxMobile" class="log" style="max-height:160px;overflow-y:auto;flex:none;padding:0;gap:4px;"></div>
+    </div>
+
+    <div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;">Online</div>
+      <div id="onlineBoxMobile" class="log" style="max-height:120px;overflow-y:auto;flex:none;padding:0;gap:4px;"></div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
