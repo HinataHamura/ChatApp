@@ -267,14 +267,17 @@ Here's a quick reference for every interactive element in the app:
 ---
 <img width="1919" height="869" alt="Screenshot 2026-04-11 171807" src="https://github.com/user-attachments/assets/276e5b66-4d00-48b0-bdfe-78bb245757b6" />
 <img width="1911" height="863" alt="Screenshot 2026-04-11 171947" src="https://github.com/user-attachments/assets/141e669e-bc04-400e-9e9b-124ce2f43f18" />
+<img width="1918" height="871" alt="Screenshot 2026-04-12 000621" src="https://github.com/user-attachments/assets/89275b20-012f-4d45-9e5f-3d8649b19063" />
 
+<img width="527" height="689" alt="Screenshot 2026-04-12 001206" src="https://github.com/user-attachments/assets/ea93ff93-eab5-464f-8ff5-0015a7b8cb90" />
+<img width="1919" height="877" alt="Screenshot 2026-04-12 001139" src="https://github.com/user-attachments/assets/9c19b1be-41fa-47fd-a727-41c8ca3de835" />
 
 
 <img width="1073" height="261" alt="Screenshot 2026-04-11 172506" src="https://github.com/user-attachments/assets/c1c8214b-6d23-4cc8-9799-3ebb407b3197" />
 
 <img width="1919" height="905" alt="Screenshot 2026-04-11 172630" src="https://github.com/user-attachments/assets/903df580-b817-4116-9b3b-0145bdd816e7" />
 <img width="1202" height="311" alt="Screenshot 2026-04-11 172805" src="https://github.com/user-attachments/assets/1edba1d9-9b46-432a-bc0f-c0159dd99d21" />
-<img width="1645" height="738" alt="Screenshot 2026-04-11 172720" src="https://github.com/user-attachments/assets/e07cb6f3-55f8-4354-9ad3-cc72892549d2" />
+
 <img width="1106" height="921" alt="Screenshot 2026-04-11 172843" src="https://github.com/user-attachments/assets/63bdc6d7-bc3d-418d-8246-09a4e54bcbe7" />
 
 
