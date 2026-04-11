@@ -297,16 +297,13 @@ app.get('/api/unread', requireAuth, (req, res) => {
 
 // ─── HTTP server ──────────────────────────────────────────────────────────────
 
-// Combined HTTP + WebSocket on one port
 const httpServer = app.listen(HTTP_PORT, () => {
   console.log(`Server running on port ${HTTP_PORT}`);
 });
 const wss = new WebSocket.Server({ server: httpServer });
 
-// ─── WebSocket helpers ────────────────────────────────────────────────────────
 
-// const wss = new WebSocket.Server({ port: WS_PORT });
-// console.log(`WebSocket    →  ws://localhost:${WS_PORT}`);
+console.log(`WebSocket    →  ws://localhost:${WS_PORT}`);
 
 function wsSend(ws, obj) {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
@@ -551,6 +548,12 @@ wss.on('connection', (ws) => {
     }
 
     // ── 7. SEARCH (WS) ────────────────────────────────────────────────────────
+    // ── 7. PING / PONG (keepalive) ──────────────────────────────────────────────
+    if (msg.type === 'ping') {
+      wsSend(ws, { type: 'pong' });
+      return;
+    }
+
     if (msg.type === 'search') {
       const q = String(msg.query || '').trim();
       if (!q) { wsSend(ws, { type: 'search_results', results: [] }); return; }
