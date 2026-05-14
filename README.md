@@ -2,7 +2,7 @@
 
 A full-featured, real-time chat application built with **Node.js**, **WebSockets**, **SQLite**, and vanilla JavaScript. Supports group channels, direct messages, file sharing, message search, read receipts, typing indicators, and more.
 
-🌐 **Live Demo:** [http://104.214.173.27/](http://104.214.173.27/)
+🌐 **Live Demo:** https://eshachat.duckdns.org/
 
 ---
 
