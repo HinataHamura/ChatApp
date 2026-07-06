@@ -1,1 +1,8 @@
-".env" 
+.env
+node_modules/
+uploads/*
+!uploads/.gitkeep
+*.db
+*.db-journal
+*.db-wal
+*.db-shm 

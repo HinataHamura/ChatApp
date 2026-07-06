@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: chat-app
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MAX_FILE_MB
+        value: 10
+      - key: DB_PATH
+        value: /var/data/chat.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+    disk:
+      name: chat-data
+      mountPath: /var/data
+      sizeGB: 1
